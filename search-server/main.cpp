@@ -68,7 +68,7 @@ public:
                                                         int document_id) const {
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
-        for (const string& word : query.plus) {
+        for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
@@ -76,7 +76,7 @@ public:
                 matched_words.push_back(word);
             }
         }
-        for (const string& word : query.minus) {
+        for (const string& word : query.minus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
@@ -154,21 +154,40 @@ private:
         return words;
     }
 
-    struct Query {
-        set<string> plus;
-        set<string> minus;
+    struct QueryWord {
+        string data;
+        bool is_minus;
+        bool is_stop;
     };
 
-    Query ParseQuery(const string& line) const {
-        Query q;
-        for (const auto& word : SplitIntoWordsNoStop(line)) {
-            if (word.at(0) == '-') {
-                q.minus.insert(word.substr(1));
-            } else {
-                q.plus.insert(word);
+    QueryWord ParseQueryWord(string text) const {
+        bool is_minus = false;
+        // Word shouldn't be empty
+        if (text[0] == '-') {
+            is_minus = true;
+            text = text.substr(1);
+        }
+        return {text, is_minus, IsStopWord(text)};
+    }
+
+    struct Query {
+        set<string> plus_words;
+        set<string> minus_words;
+    };
+
+    Query ParseQuery(const string& text) const {
+        Query query;
+        for (const string& word : SplitIntoWords(text)) {
+            const QueryWord query_word = ParseQueryWord(word);
+            if (!query_word.is_stop) {
+                if (query_word.is_minus) {
+                    query.minus_words.insert(query_word.data);
+                } else {
+                    query.plus_words.insert(query_word.data);
+                }
             }
         }
-        return q;
+        return query;
     }
 
     double ComputeWordInverseDocumentFreq(const string& word) const {
@@ -180,7 +199,7 @@ private:
                                       Predicate predicate) const
     {
         map<int, double> document_to_relevance;
-        for (const string& word : query.plus) {
+        for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
@@ -193,7 +212,7 @@ private:
             }
         }
 
-        for (const string& word : query.minus) {
+        for (const string& word : query.minus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
             }
@@ -206,7 +225,7 @@ private:
         for (const auto [document_id, relevance] : document_to_relevance) {
             matched_documents.push_back({document_id,
                                          relevance,
-                                         documents_.at(document_id).rating,
+                                         documents_.at(document_id).rating
                                         });
         }
         return matched_documents;
