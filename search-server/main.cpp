@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <map>
+#include <numeric>
 #include <set>
 #include <sstream>
 #include <string>
@@ -41,6 +42,7 @@ vector<string> SplitIntoWords(const string& text)
 struct Document {
     int id;
     double relevance;
+    int rating;
 };
 
 class SearchServer {
@@ -51,7 +53,7 @@ public:
         }
     }
 
-    void AddDocument(int document_id, const string& document) {
+    void AddDocument(int document_id, const string& document, const vector<int>& rating) {
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double tf_unit {1.0 / static_cast<double>(words.size())};
 
@@ -59,6 +61,7 @@ public:
             word_to_document_freqs_[word][document_id] += tf_unit;
         }
         ++document_count_;
+        document_ratings_[document_id] = ComputeAverageRating(rating);
     }
 
     vector<Document> FindTopDocuments(const string& query) const {
@@ -76,14 +79,17 @@ public:
     }
 
 private:
+
     struct Query {
         set<string> plus;
         set<string> minus;
     };
 
-    int document_count_{0};  // all documents number
+    size_t document_count_ {0};
     set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
+    map<int, int> document_ratings_;
+
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -137,20 +143,34 @@ private:
         }
 
         vector<Document> all_documents;
-        for (const auto& [k, v]: document_to_relevance){
-            all_documents.push_back({k, v});
+        for (const auto& [k, v] : document_to_relevance){
+            all_documents.push_back({k, v, document_ratings_.at(k)});
         }
         return all_documents;
     }
+
+    static int ComputeAverageRating(const vector<int>& ratings)  {
+        return accumulate(ratings.begin(), ratings.end(), 0) / static_cast<int>(ratings.size());
+    }
 };
 
-SearchServer CreateSearchServer() {
+SearchServer CreateSearchServer()
+{
     SearchServer search_server;
     search_server.SetStopWords(ReadLine());
 
     const int document_count = ReadLineWithNumber();
     for (int document_id = 0; document_id < document_count; ++document_id) {
-        search_server.AddDocument(document_id, ReadLine());
+        auto doc = ReadLine();
+        size_t count;
+        int number;
+        vector<int> numbers;
+        cin >> count;
+        for (size_t i = 0; i < count; ++i){
+            cin >> number;
+            numbers.push_back(number);
+        }
+        search_server.AddDocument(document_id, ReadLine(), numbers);
     }
     return search_server;
 }
@@ -159,11 +179,10 @@ int main()
 {
     const SearchServer search_server = CreateSearchServer();
     const string query = ReadLine();
-
-    for (const auto& [document_id, relevance] : search_server.FindTopDocuments(query)) {
+    for (const auto& [document_id, relevance, ratings] : search_server.FindTopDocuments(query)) {
         cout << "{ document_id = "s << document_id << ", "
-             << "relevance = "s << relevance << " }"s << endl;
-        }
-
+             << "relevance = "s << relevance << ", "
+             << "rating = "s <<  ratings << "}"s << endl;
+    }
     return 0;
 }
