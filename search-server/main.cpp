@@ -128,6 +128,13 @@ private:
                 }
             }
         }
+        for (const auto& word : query.minus){
+            if (word_to_document_freqs_.count(word) > 0) {
+                for (const auto& [id, tf] : word_to_document_freqs_.at(word)) {
+                    document_to_relevance.erase(id);
+                }
+            }
+        }
 
         vector<Document> all_documents;
         for (const auto& [k, v]: document_to_relevance){
