@@ -2,7 +2,6 @@
 #include <cmath>
 #include <iostream>
 #include <map>
-#include <numeric>
 #include <set>
 #include <sstream>
 #include <string>
@@ -22,7 +21,7 @@ string ReadLine()
 
 int ReadLineWithNumber()
 {
-    int result = 0;
+    int result;
     cin >> result;
     ReadLine();
     return result;
@@ -33,7 +32,7 @@ vector<string> SplitIntoWords(const string& text)
     istringstream in(text);
     string word;
     vector<string> words;
-    while(in >> word) {
+    while (in >> word) {
         words.push_back(word);
     }
     return words;
@@ -58,6 +57,47 @@ public:
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
         }
+    }
+
+    void AddDocument(int document_id, const string& document, DocumentStatus status,
+                     const vector<int>& ratings) {
+        const vector<string> words = SplitIntoWordsNoStop(document);
+        const double inv_word_count = 1.0 / static_cast<double>(words.size());
+        for (const string& word : words) {
+            word_to_document_freqs_[word][document_id] += inv_word_count;
+        }
+        documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+    }
+
+    template<typename Predicate>
+    vector<Document> FindTopDocuments(const string& raw_query,
+                                      Predicate predicate) const
+    {
+        const Query query = ParseQuery(raw_query);
+        auto matched_documents = FindAllDocuments(query, predicate);
+
+        sort(matched_documents.begin(), matched_documents.end(),
+             [](const Document& lhs, const Document& rhs) {
+                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                     return lhs.rating > rhs.rating;
+                 } else {
+                     return lhs.relevance > rhs.relevance;
+                 }
+             });
+        if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
+            matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
+        }
+        return matched_documents;
+    }
+
+    vector<Document> FindTopDocuments(const string& raw_query) const
+    {
+        return FindTopDocuments(raw_query,
+                                [](int document_id,
+                                   DocumentStatus status,
+                                   int rating) {
+                                    return status == DocumentStatus::ACTUAL;
+                                });
     }
 
     int GetDocumentCount() const {
@@ -88,48 +128,6 @@ public:
         return {matched_words, documents_.at(document_id).status};
     }
 
-    void AddDocument(int document_id, const string& document, DocumentStatus status,
-                     const vector<int>& ratings) {
-        const vector<string> words = SplitIntoWordsNoStop(document);
-        const double inv_word_count = 1.0 / static_cast<double>(words.size());
-        for (const string& word : words) {
-            word_to_document_freqs_[word][document_id] += inv_word_count;
-        }
-        documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-    }
-
-    template<typename Predicate>
-    vector<Document> FindTopDocuments(const string& raw_query,
-                                      Predicate predicate) const
-    {
-        const Query query = ParseQuery(raw_query);
-        auto matched_documents = FindAllDocuments(query, predicate);
-
-        sort(matched_documents.begin(), matched_documents.end(),
-             [](const Document& lhs, const Document& rhs) {
-                    if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
-                        return lhs.rating > rhs.rating;
-                    } else {
-                        return lhs.relevance > rhs.relevance;
-                    }
-                });
-        if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
-            matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
-        }
-        return matched_documents;
-    }
-
-    vector<Document> FindTopDocuments(const string& raw_query) const
-    {
-        return FindTopDocuments(raw_query,
-                                [](int document_id,
-                                DocumentStatus status,
-                                int rating) {
-            return status == DocumentStatus::ACTUAL;
-        }
-        );
-    }
-
 private:
     struct DocumentData {
         int rating;
@@ -152,6 +150,17 @@ private:
             }
         }
         return words;
+    }
+
+    static int ComputeAverageRating(const vector<int>& ratings) {
+        if (ratings.empty()) {
+            return 0;
+        }
+        int rating_sum = 0;
+        for (const int rating : ratings) {
+            rating_sum += rating;
+        }
+        return rating_sum / static_cast<int>(ratings.size());
     }
 
     struct QueryWord {
@@ -230,17 +239,6 @@ private:
         }
         return matched_documents;
     }
-
-    static int ComputeAverageRating(const vector<int>& ratings) {
-        if (ratings.empty()) {
-            return 0;
-        }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
-        return rating_sum / static_cast<int>(ratings.size());
-    }
 };
 
 void PrintDocument(const Document& document) {
@@ -257,10 +255,12 @@ int main() {
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s,       DocumentStatus::ACTUAL, {7, 2, 7});
     search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
     search_server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
+
     cout << "ACTUAL by default:"s << endl;
     for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
         PrintDocument(document);
     }
+
     cout << "ACTUAL:"s << endl;
     for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
         PrintDocument(document);
