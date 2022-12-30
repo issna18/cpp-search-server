@@ -94,12 +94,11 @@ public:
 
     vector<Document> FindTopDocuments(const string& raw_query,
                                       DocumentStatus status) const {
-        return FindTopDocuments(raw_query,
-                                [status](int document_id,
-                                         DocumentStatus s,
-                                         int rating) {
-                                            return s == status;
-                                         });
+        const auto predicate = [status](int document_id, DocumentStatus s, int rating) {
+            (void) document_id; (void) rating;
+            return s == status;
+        };
+        return FindTopDocuments(raw_query, predicate);
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
@@ -269,8 +268,8 @@ ostream& operator<<(ostream& out, const vector<ElementT> container)
     return Print(out, container) << ']';
 }
 
-template <typename T, typename U>
-void AssertEqualImpl(const T& t, const U& u, const string& t_str,
+template <typename T>
+void AssertEqualImpl(const T& t, const T& u, const string& t_str,
                      const string& u_str, const string& file,
                      const string& func, unsigned line, const string& hint)
 {
@@ -327,7 +326,7 @@ void TestAddedDocumentContent()
         ASSERT_EQUAL_HINT(server.GetDocumentCount(), 0,
                           "Сервер не должен содержать документы"s);
         server.AddDocument(11, ""s, status, ratings);
-        ASSERT_EQUAL_HINT(server.GetDocumentCount(), 1u,
+        ASSERT_EQUAL_HINT(server.GetDocumentCount(), 1,
                           "Сервер должен содержать 1 документ"s);
     }
 
@@ -346,7 +345,7 @@ void TestAddedDocumentContent()
         const string content = "cat in the city"s;
         server.AddDocument(doc_id, content, status, ratings);
         const auto found_docs = server.FindTopDocuments("in"s);
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul, "Должен найтись ровно 1 документ"s);
         const Document& doc0 = found_docs[0];
         ASSERT_EQUAL_HINT(doc0.id, doc_id, "Неправильный id документа"s);
     }
@@ -356,11 +355,11 @@ void TestAddedDocumentContent()
         server.AddDocument(33, "cat in the city"s, status, ratings);
         server.AddDocument(44, "cat in black"s, status, ratings);
         const auto found_docs = server.FindTopDocuments("in"s);
-        ASSERT_EQUAL_HINT(found_docs.size(), 2u, "Должно найтись ровно 2 документа"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 2ul, "Должно найтись ровно 2 документа"s);
         const Document& doc0 = found_docs[0];
         const Document& doc1 = found_docs[1];
-        ASSERT_EQUAL_HINT(doc0.id, 33u, "Неправильный id первого документа"s);
-        ASSERT_EQUAL_HINT(doc1.id, 44u, "Неправильный id второго документа"s);
+        ASSERT_EQUAL_HINT(doc0.id, 33, "Неправильный id первого документа"s);
+        ASSERT_EQUAL_HINT(doc1.id, 44, "Неправильный id второго документа"s);
     }
 }
 
@@ -374,7 +373,7 @@ void TestExcludeStopWordsFromAddedDocumentContent()
         server.SetStopWords(""s);
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         const auto found_docs = server.FindTopDocuments("in"s);
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u,
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul,
                           "Неправильная обработка пустого списка стоп-слов"s);
     }
 
@@ -391,7 +390,7 @@ void TestExcludeStopWordsFromAddedDocumentContent()
         server.SetStopWords("dog"s);
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         const auto found_docs = server.FindTopDocuments("in"s);
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u,
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul,
                           "Cтоп-слово не входит в содержимое документа"s);
     }
 }
@@ -464,7 +463,7 @@ void TestCalcRating()
         server.AddDocument(42, "cat in the city"s, DocumentStatus::ACTUAL, {1, 2, 3});
         const auto found_docs = server.FindTopDocuments("in"s);
         const Document& doc0 = found_docs[0];
-        ASSERT_EQUAL(doc0.rating, 2u);
+        ASSERT_EQUAL(doc0.rating, 2);
     }
 
     {
@@ -490,46 +489,51 @@ void TestFilteredPredicate()
     server.AddDocument(33, "пушистый ухоженный кот"s, DocumentStatus::BANNED, {1, 2, 3});
     server.AddDocument(22, "пушистый ухоженный кот"s, DocumentStatus::ACTUAL, {1, 2, 3});
     {
-        const auto found_docs = server.FindTopDocuments(
-                    "пушистый ухоженный кот"s,
-                    [](int document_id, DocumentStatus status, int rating)
-                        { return document_id % 2 == 0; });
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ с четным id");
+        const auto predicate = [](int document_id, DocumentStatus status, int rating) {
+            (void) status; (void) rating;
+            return document_id % 2 == 0;
+        };
+        const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul, "Должен найтись ровно 1 документ с четным id");
         ASSERT_EQUAL_HINT(found_docs[0].id, 22,
                 "Неверная фильтрация результатов поиска с использованием предиката"s);
     }
 
     {
-        const auto found_docs = server.FindTopDocuments(
-                    "пушистый ухоженный кот"s,
-                    [](int document_id, DocumentStatus status, int rating)
-                        { return status == DocumentStatus::BANNED; });
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ со статусом BANNED");
-        ASSERT_EQUAL_HINT(found_docs[0].id, 33u, "Документ не соответствует статусу BANNED"s);
+        const auto predicate = [](int document_id, DocumentStatus status, int rating) {
+            (void) document_id; (void) rating;
+            return status == DocumentStatus::BANNED;
+        };
+        const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul, "Должен найтись ровно 1 документ со статусом BANNED");
+        ASSERT_EQUAL_HINT(found_docs[0].id, 33, "Документ не соответствует статусу BANNED"s);
     }
 
     {
-        const auto found_docs = server.FindTopDocuments(
-                    "пушистый ухоженный кот"s,
-                    [](int document_id, DocumentStatus status, int rating)
-                        { return status == DocumentStatus::ACTUAL; });
-        ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ со статусом ACTUAL");
-        ASSERT_EQUAL_HINT(found_docs[0].id, 22u, "Документ не соответствует статусу ACTUAL"s);
+        const auto predicate = [](int document_id, DocumentStatus status, int rating) {
+            (void) document_id; (void) rating;
+            return status == DocumentStatus::ACTUAL;
+        };
+        const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul, "Должен найтись ровно 1 документ со статусом ACTUAL");
+        ASSERT_EQUAL_HINT(found_docs[0].id, 22, "Документ не соответствует статусу ACTUAL"s);
     }
 
     {
-        const auto found_docs = server.FindTopDocuments(
-                    "пушистый ухоженный кот"s,
-                    [](int document_id, DocumentStatus status, int rating)
-                        { return status == DocumentStatus::IRRELEVANT; });
+        const auto predicate = [](int document_id, DocumentStatus status, int rating) {
+            (void) document_id; (void) rating;
+            return status == DocumentStatus::IRRELEVANT;
+        };
+        const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
         ASSERT_HINT(found_docs.empty(), "Документов со статусом IRRELEVANT не должно быть");
     }
 
     {
-        const auto found_docs = server.FindTopDocuments(
-                    "пушистый ухоженный кот"s,
-                    [](int document_id, DocumentStatus status, int rating)
-                        { return status == DocumentStatus::REMOVED; });
+        const auto predicate = [](int document_id, DocumentStatus status, int rating) {
+            (void) document_id; (void) rating;
+            return status == DocumentStatus::REMOVED;
+        };
+        const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, predicate);
         ASSERT_HINT(found_docs.empty(), "Документов со статусом REMOVED не должно быть");
     }
 }
@@ -540,7 +544,7 @@ void TestSearchedStatus()
     server.AddDocument(33, "пушистый ухоженный кот"s, DocumentStatus::BANNED, {1, 2, 3});
     server.AddDocument(22, "пушистый ухоженный кот"s, DocumentStatus::ACTUAL, {1, 2, 3});
     const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL);
-    ASSERT_EQUAL(found_docs[0].id, 22u);
+    ASSERT_EQUAL(found_docs[0].id, 22);
 }
 
 void TestCalcRelevance()
@@ -586,12 +590,22 @@ int main()
     }
 
     cout << "ACTUAL:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
+    const auto p1 = [](int document_id, DocumentStatus status, int rating) {
+        (void) document_id; (void) rating;
+        return status == DocumentStatus::ACTUAL;
+    };
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, p1)) {
         PrintDocument(document);
     }
+
     cout << "Even ids:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
+    const auto p2 = [](int document_id, DocumentStatus status, int rating) {
+        (void) status; (void) rating;
+        return document_id % 2 == 0;
+    };
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, p2)) {
         PrintDocument(document);
     }
+
     return 0;
 }
