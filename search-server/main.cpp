@@ -459,14 +459,32 @@ void TestSortedRelevance()
 
 void TestCalcRating()
 {
-    SearchServer server;
-    server.AddDocument(42, "cat in the city"s, DocumentStatus::ACTUAL, {1, 2, 3});
-    const auto found_docs = server.FindTopDocuments("in"s);
-    const Document& doc0 = found_docs[0];
-    ASSERT_EQUAL(doc0.rating, 2u);
+    {
+        SearchServer server;
+        server.AddDocument(42, "cat in the city"s, DocumentStatus::ACTUAL, {1, 2, 3});
+        const auto found_docs = server.FindTopDocuments("in"s);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.rating, 2u);
+    }
+
+    {
+        SearchServer server;
+        server.AddDocument(42, "cat in the city"s, DocumentStatus::ACTUAL, {-1, -2, -5});
+        const auto found_docs = server.FindTopDocuments("in"s);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.rating, -2);
+    }
+
+    {
+        SearchServer server;
+        server.AddDocument(42, "cat in the city"s, DocumentStatus::ACTUAL, {5, -12, 2, 1});
+        const auto found_docs = server.FindTopDocuments("in"s);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.rating, -1);
+    }
 }
 
-void TestFilteredPridicate()
+void TestFilteredPredicate()
 {
     SearchServer server;
     server.AddDocument(33, "пушистый ухоженный кот"s, DocumentStatus::BANNED, {1, 2, 3});
@@ -489,9 +507,34 @@ void TestFilteredPridicate()
         ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ со статусом BANNED");
         ASSERT_EQUAL_HINT(found_docs[0].id, 33u, "Документ не соответствует статусу BANNED"s);
     }
+
+    {
+        const auto found_docs = server.FindTopDocuments(
+                    "пушистый ухоженный кот"s,
+                    [](int document_id, DocumentStatus status, int rating)
+                        { return status == DocumentStatus::ACTUAL; });
+        ASSERT_EQUAL_HINT(found_docs.size(), 1u, "Должен найтись ровно 1 документ со статусом ACTUAL");
+        ASSERT_EQUAL_HINT(found_docs[0].id, 22u, "Документ не соответствует статусу ACTUAL"s);
+    }
+
+    {
+        const auto found_docs = server.FindTopDocuments(
+                    "пушистый ухоженный кот"s,
+                    [](int document_id, DocumentStatus status, int rating)
+                        { return status == DocumentStatus::IRRELEVANT; });
+        ASSERT_HINT(found_docs.empty(), "Документов со статусом IRRELEVANT не должно быть");
+    }
+
+    {
+        const auto found_docs = server.FindTopDocuments(
+                    "пушистый ухоженный кот"s,
+                    [](int document_id, DocumentStatus status, int rating)
+                        { return status == DocumentStatus::REMOVED; });
+        ASSERT_HINT(found_docs.empty(), "Документов со статусом REMOVED не должно быть");
+    }
 }
 
-void TestSerchedStatus()
+void TestSearchedStatus()
 {
     SearchServer server;
     server.AddDocument(33, "пушистый ухоженный кот"s, DocumentStatus::BANNED, {1, 2, 3});
@@ -510,8 +553,7 @@ void TestCalcRelevance()
     server.AddDocument(3, "ухоженный скворец евгений"s,         DocumentStatus::BANNED, {9});
     const auto found_docs = server.FindTopDocuments("пушистый ухоженный кот"s, DocumentStatus::ACTUAL);
     constexpr double RELEVANCE = 0.866434;
-    ASSERT(found_docs[0].relevance > RELEVANCE - EPSILON &&
-           found_docs[0].relevance < RELEVANCE + EPSILON);
+    ASSERT(abs(found_docs[0].relevance - RELEVANCE) < EPSILON);
 }
 
 void TestSearchServer()
@@ -522,8 +564,8 @@ void TestSearchServer()
     RUN_TEST(TestMatchedDocument);
     RUN_TEST(TestSortedRelevance);
     RUN_TEST(TestCalcRating);
-    RUN_TEST(TestFilteredPridicate);
-    RUN_TEST(TestSerchedStatus);
+    RUN_TEST(TestFilteredPredicate);
+    RUN_TEST(TestSearchedStatus);
     RUN_TEST(TestCalcRelevance);
 }
 
