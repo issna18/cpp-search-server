@@ -81,14 +81,9 @@ public:
         }
     }
 
-    explicit SearchServer(const string& text) {
-        for (const string& word : SplitIntoWords(text)) {
-            if(!IsValidString(word)) {
-                throw std::invalid_argument("В стоп-слове недопустимые символы");
-            }
-            stop_words_.insert(word);
-        }
-    }
+    explicit SearchServer(const string& text)
+        : SearchServer{SplitIntoWords(text)}
+    {}
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
