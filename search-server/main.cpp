@@ -102,6 +102,7 @@ public:
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+        documents_id_.push_back(document_id);
     }
 
     template<typename Predicate>
@@ -142,12 +143,11 @@ public:
     }
 
     int GetDocumentId(int index) const {
-        if(index < 0 || static_cast<size_t>(index) > documents_.size()){
+        try {
+            return documents_id_.at(static_cast<size_t>(index));
+        } catch (const std::out_of_range& e) {
             throw std::out_of_range("Индекс документа за пределами диапазона от 0 до количества документов");
         }
-        auto it = documents_.cbegin();
-        std::advance(it, index);
-        return it->first;
     }
 
     std::tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query,
@@ -183,6 +183,7 @@ private:
     std::set<string> stop_words_{};
     std::map<string, std::map<int, double>> word_to_document_freqs_{};
     std::map<int, DocumentData> documents_{};
+    vector<int> documents_id_{};
 
     static bool IsValidString(const string& word) {
         return none_of(word.begin(), word.end(), [](char c) {
@@ -632,8 +633,9 @@ void TestGetDocumentId()
     server.AddDocument(100, "белый кот и модный ошейник"s,      DocumentStatus::BANNED, {8, -3});
     server.AddDocument(50, "пушистый кот пушистый хвост"s,      DocumentStatus::ACTUAL, {7, 2, 7});
     server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
-    int id{server.GetDocumentId(2)};
-    ASSERT_EQUAL(id, 100);
+    ASSERT_EQUAL(server.GetDocumentId(2), 1);
+    ASSERT_EQUAL(server.GetDocumentId(0), 100);
+    ASSERT_EQUAL(server.GetDocumentId(1), 50);
 }
 
 void TestSearchServer()
