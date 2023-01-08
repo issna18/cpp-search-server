@@ -74,7 +74,8 @@ public:
     template <typename StringCollection>
     explicit SearchServer(const StringCollection& stop_words) {
         for (const string& word : stop_words) {
-            if(!IsValidString(word)) {
+            if (word.empty()) continue;
+            if (!IsValidString(word)) {
                 throw std::invalid_argument("В стоп-слове недопустимые символы");
             }
             stop_words_.insert(word);
@@ -87,14 +88,14 @@ public:
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
-        if(document_id < 0) {
+        if (document_id < 0) {
             throw std::invalid_argument("Документ с отрицательным id");
         }
-        if(documents_.count(document_id) > 0) {
+        if (documents_.count(document_id) > 0) {
             throw std::invalid_argument("Документ с id уже добавлен");
         }
-        if(!IsValidString(document)) {
-            throw std::invalid_argument("В тексте документы недопустимые символы");
+        if (!IsValidString(document)) {
+            throw std::invalid_argument("В тексте документа недопустимые символы");
         }
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / static_cast<double>(words.size());
@@ -146,7 +147,7 @@ public:
         try {
             return documents_id_.at(static_cast<size_t>(index));
         } catch (const std::out_of_range& e) {
-            throw std::out_of_range("Индекс документа за пределами диапазона от 0 до количества документов");
+            throw std::out_of_range("Индекс документа за пределами диапазона (0, количество документов)");
         }
     }
 
@@ -215,13 +216,24 @@ private:
         bool is_stop;
     };
 
-    QueryWord ParseQueryWord(string text) const {
+    QueryWord ParseQueryWord(string word) const {
         bool is_minus = false;
-        if (text[0] == '-') {
+
+        if (word.front() == '-') {
+            if (word.size() == 1) {
+                throw std::invalid_argument("В поисковом запросе слово состоит из одного символа \"минус\"");
+            }
+            if (word[1] == '-') {
+                throw std::invalid_argument("В поисковом запросе более одного минуса перед словами");
+            }
             is_minus = true;
-            text = text.substr(1);
+            word = word.substr(1);
         }
-        return {text, is_minus, IsStopWord(text)};
+        if (word.back() == '-' ) {
+            throw std::invalid_argument("В поисковом запросе отсутствует текст после символа \"минус\"");
+        }
+
+        return {word, is_minus, IsStopWord(word)};
     }
 
     struct Query {
@@ -230,17 +242,11 @@ private:
     };
 
     Query ParseQuery(const string& text) const {
-        if(!IsValidString(text)) {
-            throw std::invalid_argument("В поисковом запросе есть недопустимые символы");
+        if (!IsValidString(text)) {
+            throw std::invalid_argument("В поисковом запросе недопустимые символы");
         }
         Query query;
         for (const string& word : SplitIntoWords(text)) {
-            if(word[0] == '-' && word[1] == '-') {
-                throw std::invalid_argument("В поисковом запросе более одного минуса перед словами");
-            }
-            if(word[word.size()-1] == '-' ) {
-                throw std::invalid_argument("В поисковом запросе отсутствует текст после символа \"минус\"");
-            }
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
@@ -660,31 +666,49 @@ int main() {
         search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
         search_server.AddDocument(1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
     } catch (const std::invalid_argument& e) {
-        cout << "Ошибка: "s << e.what() << endl;
+        cout << "Ошибка 1: "s << e.what() << endl;
     }
 
     try {
         search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, {1, 2});
     } catch (const std::invalid_argument& e) {
-        cout << "Ошибка: "s << e.what() << endl;
+        cout << "Ошибка 2: "s << e.what() << endl;
     }
 
     try {
         search_server.AddDocument(3, "большой пёс скво\x12рец"s, DocumentStatus::ACTUAL, {1, 3, 2});
     } catch (const std::invalid_argument& e) {
-        cout << "Ошибка: "s << e.what() << endl;
+        cout << "Ошибка 3: "s << e.what() << endl;
     }
 
     try {
-        const auto documents = search_server.FindTopDocuments("--пушистый"s);
+        const auto documents = search_server.FindTopDocuments("кот --пушистый пёс"s);
     } catch (const std::invalid_argument& e) {
-        cout << "Ошибка: "s << e.what() << endl;
+        cout << "Ошибка 4: "s << e.what() << endl;
+    }
+
+    try {
+        const auto documents = search_server.FindTopDocuments("это - кот"s);
+    } catch (const std::invalid_argument& e) {
+        cout << "Ошибка 5: "s << e.what() << endl;
+    }
+
+    try {
+        const auto documents = search_server.FindTopDocuments("кот пушистый- пёс"s);
+    } catch (const std::invalid_argument& e) {
+        cout << "Ошибка 6: "s << e.what() << endl;
+    }
+
+    try {
+        const auto documents = search_server.FindTopDocuments("кот пуш-ок"s);
+    } catch (const std::invalid_argument& e) {
+        cout << "Ошибка 7: "s << e.what() << endl;
     }
 
     try {
         search_server.GetDocumentId(5);
     } catch (const std::out_of_range& e) {
-        cout << "Ошибка: "s << e.what() << endl;
+        cout << "Ошибка 8: "s << e.what() << endl;
     }
 
     return 0;
