@@ -109,6 +109,7 @@ SearchServer::SplitIntoWordsNoStop(const std::string& text) const
 
 int SearchServer::ComputeAverageRating(const std::vector<int>& ratings)
 {
+    if(ratings.empty()) return 0;
     return std::accumulate(ratings.begin(), ratings.end(), 0) / static_cast<int>(ratings.size());
 }
 
