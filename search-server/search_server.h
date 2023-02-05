@@ -14,8 +14,6 @@
 constexpr int MAX_RESULT_DOCUMENT_COUNT = 5;
 constexpr double EPSILON = 1e-6;
 
-static const std::map<std::string, double> empty_{};
-
 class SearchServer {
 public:
     SearchServer() = default;
@@ -40,17 +38,14 @@ public:
     int GetDocumentCount() const;
 
     std::set<int>::const_iterator begin();
-
     std::set<int>::const_iterator end();
 
-    std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query,
-                                                        int document_id) const;
+    std::tuple<std::vector<std::string>, DocumentStatus>
+    MatchDocument(const std::string& raw_query, int document_id) const;
 
     const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
 
     void RemoveDocument(int document_id);
-
-    friend void RemoveDuplicates(SearchServer&);
 
 private:
     struct DocumentData {
@@ -68,6 +63,7 @@ private:
     std::map<int, std::map<std::string, double>> document_to_word_freqs_{};
     std::map<int, DocumentData> documents_{};
     std::set<int> documents_id_{};
+    static const std::map<std::string, double> empty_;
 
     bool IsStopWord(const std::string& word) const;
 

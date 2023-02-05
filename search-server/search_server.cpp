@@ -5,8 +5,10 @@
 #include <numeric>
 #include <cmath>
 
+const std::map<std::string, double> SearchServer::empty_ {};
+
 SearchServer::SearchServer(const std::string& text)
-    : SearchServer{SplitIntoWords(text)}
+    : SearchServer {SplitIntoWords(text)}
 {
 
 }
@@ -31,7 +33,7 @@ void SearchServer::AddDocument(int document_id,
         double freq = word_to_document_freqs_[word][document_id] += inv_word_count;
         document_to_word_freqs_[document_id][word] = freq;
     }
-    documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
+    documents_.emplace(document_id, DocumentData {ComputeAverageRating(ratings), status});
     documents_id_.emplace(document_id);
 }
 
@@ -69,11 +71,8 @@ std::set<int>::const_iterator SearchServer::end()
 
 const std::map<std::string, double>& SearchServer::GetWordFrequencies(int document_id) const
 {
-    try {
-        return document_to_word_freqs_.at(document_id);
-    } catch (...) {
-        return empty_;
-    }
+    if (0 == document_to_word_freqs_.count(document_id)) return empty_;
+    return document_to_word_freqs_.at(document_id);
 }
 
 void SearchServer::RemoveDocument(int document_id)
@@ -93,7 +92,7 @@ SearchServer::MatchDocument(const std::string& raw_query, int document_id) const
     const Query query = ParseQuery(raw_query);
     std::vector<std::string> matched_words;
     for (const std::string& word : query.plus_words) {
-        if (word_to_document_freqs_.count(word) == 0) {
+        if (0 == word_to_document_freqs_.count(word)) {
             continue;
         }
         if (word_to_document_freqs_.at(word).count(document_id)) {
@@ -101,7 +100,7 @@ SearchServer::MatchDocument(const std::string& raw_query, int document_id) const
         }
     }
     for (const std::string& word : query.minus_words) {
-        if (word_to_document_freqs_.count(word) == 0) {
+        if (0 == word_to_document_freqs_.count(word)) {
             continue;
         }
         if (word_to_document_freqs_.at(word).count(document_id)) {
