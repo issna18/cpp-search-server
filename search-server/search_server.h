@@ -1,6 +1,7 @@
 #pragma once
 
 #include "document.h"
+#include "log_duration.h"
 #include "string_processing.h"
 
 #include <algorithm>
@@ -13,7 +14,7 @@
 constexpr int MAX_RESULT_DOCUMENT_COUNT = 5;
 constexpr double EPSILON = 1e-6;
 
-
+static const std::map<std::string, double> empty_{};
 
 class SearchServer {
 public:
@@ -38,10 +39,18 @@ public:
 
     int GetDocumentCount() const;
 
-    int GetDocumentId(int index) const;
+    std::set<int>::const_iterator begin();
+
+    std::set<int>::const_iterator end();
 
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query,
                                                         int document_id) const;
+
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+
+    void RemoveDocument(int document_id);
+
+    friend void RemoveDuplicates(SearchServer&);
 
 private:
     struct DocumentData {
@@ -56,8 +65,9 @@ private:
 
     std::set<std::string> stop_words_{};
     std::map<std::string, std::map<int, double>> word_to_document_freqs_{};
+    std::map<int, std::map<std::string, double>> document_to_word_freqs_{};
     std::map<int, DocumentData> documents_{};
-    std::vector<int> documents_id_{};
+    std::set<int> documents_id_{};
 
     bool IsStopWord(const std::string& word) const;
 
@@ -93,8 +103,12 @@ SearchServer::SearchServer(const StringCollection& stop_words) {
 }
 
 template<typename Predicate>
-std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query,
-                                  Predicate predicate) const {
+std::vector<Document>
+SearchServer::FindTopDocuments(const std::string& raw_query,
+                               Predicate predicate) const
+{
+    using namespace std::literals;
+    LOG_DURATION_STREAM("Operation time", std::cerr);
     const Query query = ParseQuery(raw_query);
     auto matched_documents = FindAllDocuments(query, predicate);
 

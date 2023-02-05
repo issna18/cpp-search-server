@@ -2,8 +2,16 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 
 void TestSearchServer();
+
+template <typename F, typename S>
+std::ostream& operator<<(std::ostream& out, const std::pair<F, S> p) {
+    using namespace std::string_literals;
+    out << '(' << p.first << ", "s << p.second << ')';
+    return out;
+}
 
 template <typename Container>
 std::ostream& Print(std::ostream& out, const Container& container)
@@ -26,6 +34,12 @@ std::ostream& operator<<(std::ostream& out, const std::vector<ElementT> containe
 {
     out << '[';
     return Print(out, container) << ']';
+}
+
+template <typename K, typename V>
+std::ostream& operator<<(std::ostream& out, const std::map<K, V> container) {
+    out << '<';
+    return Print(out, container) << '>';
 }
 
 template <typename T>

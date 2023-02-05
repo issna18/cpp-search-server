@@ -4,6 +4,7 @@
 
 #include <string>
 #include <set>
+#include <map>
 
 using namespace std::string_literals;
 
@@ -277,15 +278,40 @@ void TestCalcRelevance()
     ASSERT(std::abs(found_docs[0].relevance - RELEVANCE) < EPSILON);
 }
 
-void TestGetDocumentId()
+void TestServerIterator()
 {
     SearchServer server("и в на"s);
     server.AddDocument(100, "белый кот и модный ошейник"s,      DocumentStatus::BANNED, {8, -3});
     server.AddDocument(50, "пушистый кот пушистый хвост"s,      DocumentStatus::ACTUAL, {7, 2, 7});
     server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
-    ASSERT_EQUAL(server.GetDocumentId(2), 1);
-    ASSERT_EQUAL(server.GetDocumentId(0), 100);
-    ASSERT_EQUAL(server.GetDocumentId(1), 50);
+    std::vector<int> expected {1, 50, 100};
+    auto it = expected.begin();
+    for (const auto& document_id : server) {
+         ASSERT_EQUAL(document_id, *it++);
+    }
+}
+
+void TestGetWordFrequencies()
+{
+    SearchServer server("и в на"s);
+    server.AddDocument(100, "белый кот и модный ошейник"s,      DocumentStatus::BANNED, {8, -3});
+    server.AddDocument(50, "пушистый кот пушистый хвост"s,      DocumentStatus::ACTUAL, {7, 2, 7});
+    server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
+    ASSERT_EQUAL(server.GetWordFrequencies(50).at("пушистый"), 0.5);
+    const std::map<std::string, double>& expected = {};
+    ASSERT_EQUAL(server.GetWordFrequencies(2), expected);
+}
+
+void TestRemoveDocument()
+{
+    SearchServer server("и в на"s);
+    server.AddDocument(100, "белый кот и модный ошейник"s,      DocumentStatus::BANNED, {8, -3});
+    server.AddDocument(50, "пушистый кот пушистый хвост"s,      DocumentStatus::ACTUAL, {7, 2, 7});
+    server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
+    server.RemoveDocument(50);
+    ASSERT_EQUAL(server.GetDocumentCount(), 2);
+    const std::map<std::string, double>& expected = {};
+    ASSERT_EQUAL(server.GetWordFrequencies(50), expected);
 }
 
 void TestSearchServer()
@@ -299,5 +325,7 @@ void TestSearchServer()
     RUN_TEST(TestFilteredPredicate);
     RUN_TEST(TestSearchedStatus);
     RUN_TEST(TestCalcRelevance);
-    RUN_TEST(TestGetDocumentId);
+    RUN_TEST(TestServerIterator);
+    RUN_TEST(TestGetWordFrequencies);
+    RUN_TEST(TestRemoveDocument);
 }

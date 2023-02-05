@@ -1,3 +1,4 @@
+#include "log_duration.h"
 #include "search_server.h"
 
 #include <algorithm>
@@ -27,10 +28,11 @@ void SearchServer::AddDocument(int document_id,
     const std::vector<std::string> words = SplitIntoWordsNoStop(document);
     const double inv_word_count = 1.0 / static_cast<double>(words.size());
     for (const std::string& word : words) {
-        word_to_document_freqs_[word][document_id] += inv_word_count;
+        double freq = word_to_document_freqs_[word][document_id] += inv_word_count;
+        document_to_word_freqs_[document_id][word] = freq;
     }
     documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-    documents_id_.push_back(document_id);
+    documents_id_.emplace(document_id);
 }
 
 std::vector<Document>
@@ -55,18 +57,39 @@ int SearchServer::GetDocumentCount() const
     return static_cast<int>(documents_.size());
 }
 
-int SearchServer::GetDocumentId(int index) const
+std::set<int>::const_iterator SearchServer::begin()
+{
+    return documents_id_.cbegin();
+}
+
+std::set<int>::const_iterator SearchServer::end()
+{
+    return documents_id_.cend();
+}
+
+const std::map<std::string, double>& SearchServer::GetWordFrequencies(int document_id) const
 {
     try {
-        return documents_id_.at(static_cast<size_t>(index));
-    } catch (const std::out_of_range& e) {
-        throw std::out_of_range("Индекс документа за пределами диапазона (0, количество документов)");
+        return document_to_word_freqs_.at(document_id);
+    } catch (...) {
+        return empty_;
     }
+}
+
+void SearchServer::RemoveDocument(int document_id)
+{
+    for(const auto& [word, _]: document_to_word_freqs_.at(document_id)) {
+        word_to_document_freqs_.at(word).erase(document_id);
+    }
+    document_to_word_freqs_.erase(document_id);
+    documents_.erase(document_id);
+    documents_id_.erase(document_id);
 }
 
 std::tuple<std::vector<std::string>, DocumentStatus>
 SearchServer::MatchDocument(const std::string& raw_query, int document_id) const
 {
+    LOG_DURATION_STREAM("Operation time", std::cerr);
     const Query query = ParseQuery(raw_query);
     std::vector<std::string> matched_words;
     for (const std::string& word : query.plus_words) {
@@ -155,5 +178,8 @@ SearchServer::Query SearchServer::ParseQuery(const std::string& text) const
 
 double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const
 {
-    return std::log(static_cast<double>(documents_.size()) / static_cast<double>(word_to_document_freqs_.at(word).size()));
+    return std::log(
+                static_cast<double>(documents_.size()) /
+                static_cast<double>(word_to_document_freqs_.at(word).size())
+                );
 }
