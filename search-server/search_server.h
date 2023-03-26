@@ -71,6 +71,7 @@ private:
     struct DocumentData {
         int rating;
         DocumentStatus status;
+        std::string content;
     };
 
     struct Query {
@@ -78,7 +79,6 @@ private:
         std::vector<std::string_view> minus_words;
     };
 
-    std::set<std::string, std::less<>> all_words_{};
     std::set<std::string, std::less<>> stop_words_{};
     std::map<std::string_view, std::map<int, double>> word_to_document_freqs_{};
     std::map<int, std::map<std::string_view, double>> document_to_word_freqs_{};

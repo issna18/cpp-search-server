@@ -62,6 +62,8 @@ void TestAddedDocumentContent()
         SearchServer server;
         server.AddDocument(33, "cat in the city"s, status, ratings);
         server.AddDocument(44, "cat in black"s, status, ratings);
+        ASSERT_EQUAL(server.GetDocumentCount(), 2);
+
         const auto found_docs = server.FindTopDocuments("in"s);
         ASSERT_EQUAL_HINT(found_docs.size(), 2ul, "Должно найтись ровно 2 документа"s);
         const Document& doc0 = found_docs[0];

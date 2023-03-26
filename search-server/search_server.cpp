@@ -22,21 +22,31 @@ void SearchServer::AddDocument(int document_id,
     if (document_id < 0) {
         throw std::invalid_argument("Документ с отрицательным id");
     }
-    if (documents_.count(document_id) > 0) {
-        throw std::invalid_argument("Документ с id уже добавлен");
-    }
     if (!IsValidString(document)) {
         throw std::invalid_argument("В тексте документа недопустимые символы");
     }
-    const std::vector<std::string_view> words {SplitIntoWordsNoStop(document)};
-    const double inv_word_count = 1.0 / static_cast<double>(words.size());
-    for (const std::string_view word : words) {
-        auto it_src {all_words_.emplace(word)};
-        double freq = word_to_document_freqs_[*it_src.first][document_id] += inv_word_count;
-        document_to_word_freqs_[document_id][*it_src.first] = freq;
+
+    auto id_emplaced = documents_id_.emplace(document_id);
+    if (!id_emplaced.second) {
+        throw std::invalid_argument("Документ с id уже добавлен");
     }
-    documents_.emplace(document_id, DocumentData {ComputeAverageRating(ratings), status});
-    documents_id_.emplace(document_id);
+
+    auto doc_emplaced = documents_.emplace(document_id, DocumentData
+                                          {ComputeAverageRating(ratings),
+                                           status,
+                                           std::string{document}}
+                                          );
+
+    const std::vector<std::string_view> words {
+        SplitIntoWordsNoStop(doc_emplaced.first->second.content)
+    };
+
+    const double inv_word_count = 1.0 / static_cast<double>(words.size());
+
+    for (const std::string_view word : words) {
+        double freq = word_to_document_freqs_[word][document_id] += inv_word_count;
+        document_to_word_freqs_[document_id][word] = freq;
+    }
 }
 
 std::vector<Document>
