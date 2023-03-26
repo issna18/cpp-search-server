@@ -99,7 +99,7 @@ SearchServer::MatchDocument(const std::execution::sequenced_policy&,
                             const std::string_view raw_query,
                             int document_id) const
 {
-    return SearchServer::MatchDocument(raw_query, document_id);
+    return MatchDocument(raw_query, document_id);
 }
 
 std::tuple<std::vector<std::string_view>, DocumentStatus>
@@ -194,7 +194,8 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(const std::string_view w) c
             IsStopWord(w)};
 }
 
-SearchServer::Query SearchServer::ParseQuery(const std::string_view text, bool clean) const
+SearchServer::Query
+SearchServer::ParseQuery(const std::string_view text, bool cleanup) const
 {
     if (!IsValidString(text)) {
         throw std::invalid_argument("В поисковом запросе недопустимые символы");
@@ -211,7 +212,7 @@ SearchServer::Query SearchServer::ParseQuery(const std::string_view text, bool c
         }
     }
 
-    if (clean) {
+    if (cleanup) {
         std::sort(query.minus_words.begin(), query.minus_words.end());
         auto last_m = std::unique(query.minus_words.begin(), query.minus_words.end());
         query.minus_words.erase(last_m, query.minus_words.end());
@@ -231,9 +232,3 @@ double SearchServer::ComputeWordInverseDocumentFreq(const std::string_view word)
                 static_cast<double>(word_to_document_freqs_.at(word).size())
                 );
 }
-
-
-
-
-
-

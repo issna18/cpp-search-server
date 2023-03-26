@@ -53,12 +53,12 @@ public:
     std::set<int>::const_iterator begin();
     std::set<int>::const_iterator end();
 
-    std::tuple<std::vector<std::string_view>, DocumentStatus>
-    MatchDocument(const std::string_view raw_query, int document_id) const;
-    std::tuple<std::vector<std::string_view>, DocumentStatus>
-    MatchDocument(const std::execution::sequenced_policy&, const std::string_view raw_query, int document_id) const;
-    std::tuple<std::vector<std::string_view>, DocumentStatus>
-    MatchDocument(const std::execution::parallel_policy&, const std::string_view raw_query, int document_id) const;
+    using MatchedDocument = std::tuple<std::vector<std::string_view>, DocumentStatus>;
+    MatchedDocument MatchDocument(const std::string_view raw_query, int document_id) const;
+    MatchedDocument MatchDocument(const std::execution::sequenced_policy&,
+                                  const std::string_view raw_query, int document_id) const;
+    MatchedDocument MatchDocument(const std::execution::parallel_policy&,
+                                  const std::string_view raw_query, int document_id) const;
 
     const std::map<std::string_view, double>& GetWordFrequencies(int document_id) const;
 
@@ -98,7 +98,7 @@ private:
     };
 
     QueryWord ParseQueryWord(const std::string_view) const;
-    Query ParseQuery(const std::string_view text, bool clean=true) const;
+    Query ParseQuery(const std::string_view text, bool cleanup = true) const;
 
     double ComputeWordInverseDocumentFreq(const std::string_view word) const;
 
@@ -248,4 +248,3 @@ void SearchServer::RemoveDocument(ExecutionPolicy&& policy, int document_id)
     documents_.erase(document_id);
     documents_id_.erase(document_id);
 }
-
