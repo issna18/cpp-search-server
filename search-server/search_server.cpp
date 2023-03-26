@@ -149,6 +149,13 @@ void SearchServer::RemoveDocument(int document_id)
     documents_id_.erase(document_id);
 }
 
+bool SearchServer::IsValidString(const std::string_view word)
+{
+    return std::none_of(word.begin(), word.end(), [](char c) {
+        return c >= '\0' && c < ' ';
+    });
+}
+
 bool SearchServer::IsStopWord(const std::string_view word) const
 {
     return stop_words_.count(word) > 0;

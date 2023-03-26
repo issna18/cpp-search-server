@@ -85,6 +85,7 @@ private:
     std::map<int, DocumentData> documents_{};
     std::set<int> documents_id_{};
 
+    static bool IsValidString(const std::string_view word);
     bool IsStopWord(const std::string_view word) const;
 
     std::vector<std::string_view> SplitIntoWordsNoStop(const std::string_view text) const;
