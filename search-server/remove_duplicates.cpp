@@ -6,11 +6,11 @@
 void RemoveDuplicates(SearchServer& server)
 {
     std::set<int> docs_to_delete;
-    std::map<std::set<std::string>, int> words_to_doc;
+    std::map<std::set<std::string_view>, int> words_to_doc;
 
     for (int document_id : server) {
         const auto& words = server.GetWordFrequencies(document_id);
-        std::set<std::string> words_key;
+        std::set<std::string_view> words_key;
         std::transform(words.begin(),
                        words.end(),
                        std::inserter(words_key, words_key.end()),

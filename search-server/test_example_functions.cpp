@@ -3,10 +3,12 @@
 #include "search_server.h"
 
 #include <string>
+#include <string_view>
 #include <set>
 #include <map>
 
 using namespace std::string_literals;
+using namespace std::string_view_literals;
 
 void AssertImpl(bool value, const std::string& expr_str, const std::string& file,
                 const std::string& func, unsigned line,
@@ -146,7 +148,7 @@ void TestMatchedDocument()
         server.AddDocument(document_id, content, DocumentStatus::ACTUAL, ratings);
         const std::string raw_query = "cat city"s;
         const auto words = server.MatchDocument(raw_query, document_id);
-        std::vector<std::string> query {"cat"s, "city"s};
+        std::vector<std::string_view> query {"cat"sv, "city"sv};
         ASSERT_EQUAL_HINT(std::get<0>(words), query,
                           "Возвращены не все слова из поискового запроса, "
                           "присутствующие в документе"s);
@@ -298,7 +300,7 @@ void TestGetWordFrequencies()
     server.AddDocument(50, "пушистый кот пушистый хвост"s,      DocumentStatus::ACTUAL, {7, 2, 7});
     server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
     ASSERT_EQUAL(server.GetWordFrequencies(50).at("пушистый"), 0.5);
-    const std::map<std::string, double>& expected = {};
+    const std::map<std::string_view, double>& expected = {};
     ASSERT_EQUAL(server.GetWordFrequencies(2), expected);
 }
 
@@ -310,8 +312,53 @@ void TestRemoveDocument()
     server.AddDocument(1, "ухоженный пёс выразительные глаза"s, DocumentStatus::BANNED, {5, -12, 2, 1});
     server.RemoveDocument(50);
     ASSERT_EQUAL(server.GetDocumentCount(), 2);
-    const std::map<std::string, double>& expected = {};
+    const std::map<std::string_view, double>& expected = {};
     ASSERT_EQUAL(server.GetWordFrequencies(50), expected);
+}
+
+void TestStringViewConstructor()
+{
+    const int doc_id = 42;
+    const std::string content = "cat in the city"s;
+    const std::vector<int> ratings {1, 2, 3};
+    {
+        SearchServer server(""sv);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        const auto found_docs = server.FindTopDocuments("in"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul,
+                          "Неправильная обработка пустого списка стоп-слов"s);
+    }
+
+    {
+        SearchServer server("in the"sv);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        ASSERT_HINT(server.FindTopDocuments("in"s).empty(),
+                    "Стоп-слова должны быть исключены из документов"s);
+    }
+
+    {
+        SearchServer server("dog"sv);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        const auto found_docs = server.FindTopDocuments("in"s);
+        ASSERT_EQUAL_HINT(found_docs.size(), 1ul,
+                          "Cтоп-слово не входит в содержимое документа"s);
+    }
+
+    {
+        const std::vector<std::string_view> stop_words{"in"sv, "the"sv};
+        SearchServer server(stop_words);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        ASSERT_HINT(server.FindTopDocuments("in"s).empty(),
+                    "Стоп-слова в vector должны быть исключены из документов"s);
+    }
+
+    {
+        const std::set<std::string_view> stop_words{"in"sv, "the"sv};
+        SearchServer server(stop_words);
+        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        ASSERT_HINT(server.FindTopDocuments("in"s).empty(),
+                    "Стоп-слова в set должны быть исключены из документов"s);
+    }
 }
 
 void TestSearchServer()
@@ -328,4 +375,5 @@ void TestSearchServer()
     RUN_TEST(TestServerIterator);
     RUN_TEST(TestGetWordFrequencies);
     RUN_TEST(TestRemoveDocument);
+    RUN_TEST(TestStringViewConstructor);
 }
