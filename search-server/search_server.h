@@ -29,15 +29,11 @@ public:
     void AddDocument(int document_id, const std::string_view document,
                      DocumentStatus status, const std::vector<int>& ratings);
 
-    std::vector<Document>
-    FindTopDocuments(const std::string_view raw_query,
-                     DocumentStatus status=DocumentStatus::ACTUAL) const;
-
     template<typename ExecutionPolicy>
     std::vector<Document>
     FindTopDocuments(ExecutionPolicy&& policy,
                      const std::string_view raw_query,
-                     DocumentStatus status=DocumentStatus::ACTUAL) const;
+                     DocumentStatus status = DocumentStatus::ACTUAL) const;
 
     template<typename Predicate>
     std::vector<Document>
@@ -47,6 +43,10 @@ public:
     std::vector<Document>
     FindTopDocuments(ExecutionPolicy&& policy, const std::string_view raw_query,
                      Predicate predicate) const;
+
+    std::vector<Document>
+    FindTopDocuments(const std::string_view raw_query,
+                     DocumentStatus status = DocumentStatus::ACTUAL) const;
 
     int GetDocumentCount() const;
 
@@ -62,10 +62,10 @@ public:
 
     const std::map<std::string_view, double>& GetWordFrequencies(int document_id) const;
 
-    void RemoveDocument(int document_id);
-
     template <typename ExecutionPolicy>
     void RemoveDocument(ExecutionPolicy&& policy, int document_id);
+
+    void RemoveDocument(int document_id);
 
 private:
     struct DocumentData {
