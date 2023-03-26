@@ -2,7 +2,6 @@
 
 #include "concurrent_map.h"
 #include "document.h"
-#include "string_processing.h"
 
 #include <algorithm>
 #include <execution>

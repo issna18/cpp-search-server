@@ -1,4 +1,5 @@
 #include "search_server.h"
+#include "string_processing.h"
 
 #include <algorithm>
 #include <numeric>
