@@ -5,8 +5,6 @@
 #include <numeric>
 #include <cmath>
 
-const std::map<std::string_view, double> SearchServer::empty_ {};
-
 SearchServer::SearchServer(const std::string& stop_words)
     : SearchServer {SplitIntoWords(stop_words)}
 {
@@ -64,6 +62,7 @@ std::set<int>::const_iterator SearchServer::end()
 
 const std::map<std::string_view, double>& SearchServer::GetWordFrequencies(int document_id) const
 {
+    static const std::map<std::string_view, double> empty_{};
     if (0 == document_to_word_freqs_.count(document_id)) return empty_;
     return document_to_word_freqs_.at(document_id);
 }
